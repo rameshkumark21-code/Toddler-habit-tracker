@@ -212,7 +212,6 @@ html_code = """
       const [page, setPage]           = useState("board");
       const [themeKey, setThemeKey]   = useState("rainbow");
       
-      // Initialize states smoothly checking local cache fallbacks first
       const [habits, setHabits]       = useState(() => {
         const local = localStorage.getItem("star_tracker_habits");
         return local ? JSON.parse(local) : INITIAL_HABITS_DATA;
@@ -246,14 +245,16 @@ html_code = """
       const sortedMilestones = [...milestones].sort((a, b) => a.stars - b.stars);
       const nextMilestone = sortedMilestones.find(m => m.stars > totalStars);
 
-      // Force frame sizing wrapper rules on mount so UI fills correctly inside Streamlit
+      // FIXED: Handshake protocol messages so Streamlit registers the custom iframe instantly
       useEffect(() => {
         if (window.parent) {
-          window.parent.postMessage({ isStreamlitMessage: true, type: "streamlit:setFrameHeight", height: 850 }, "*");
+          // Send mandatory component ready signal
+          window.parent.postMessage({ type: "streamlit:componentReady", version: 1 }, "*");
+          // Adjust layout wrapper height
+          window.parent.postMessage({ type: "streamlit:setFrameHeight", height: 850 }, "*");
         }
       }, []);
 
-      // Two-way messaging pipeline down into Streamlit Parent Python handler
       const syncWithPythonCloud = (updatedHabits, updatedStars, updatedName) => {
         if (window.parent) {
           window.parent.postMessage({
@@ -630,15 +631,18 @@ html_code = html_code.replace("INITIAL_HABITS_PLACEHOLDER", json.dumps(cloud_hab
 html_code = html_code.replace("INITIAL_STARS_PLACEHOLDER", json.dumps(cloud_stars))
 html_code = html_code.replace("INITIAL_NAME_PLACEHOLDER", cloud_name)
 
-# 3. DYNAMIC WORKSPACE DIRECTORY STORAGE FOR TWO-WAY COMPONENTS
-if not os.path.exists("tracker_frontend"):
-    os.makedirs("tracker_frontend")
+# FIXED: Strict absolute path generation for rock-solid workspace tracking across deployments
+PARENT_DIR = os.path.dirname(os.path.abspath(__file__))
+COMPONENT_DIR = os.path.join(PARENT_DIR, "tracker_frontend")
+
+if not os.path.exists(COMPONENT_DIR):
+    os.makedirs(COMPONENT_DIR)
     
-with open("tracker_frontend/index.html", "w", encoding="utf-8") as f:
+with open(os.path.join(COMPONENT_DIR, "index.html"), "w", encoding="utf-8") as f:
     f.write(html_code)
 
 # Compile standard two-way connection listener
-star_tracker_component = components.declare_component("star_tracker_component", path="tracker_frontend")
+star_tracker_component = components.declare_component("star_tracker_component", path=COMPONENT_DIR)
 
 # Render active layout frame and accept incoming save-state updates from React
 component_data = star_tracker_component(key="main_tracker")
