@@ -74,7 +74,8 @@ cloud_habits, cloud_stars, cloud_name = load_cloud_data()
 # =====================================================================
 # 2. RAW INTERACTIVE ENGINE WITH STREAMLIT DATA BRIDGE
 # =====================================================================
-html_code = f"""
+# Standard string block to prevent Python-side curly brace evaluation conflicts
+html_code = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -87,28 +88,28 @@ html_code = f"""
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
-    @media screen and (max-width: 768px) and (orientation: portrait) {{
-      body {{
+    @media screen and (max-width: 768px) and (orientation: portrait) {
+      body {
         position: fixed; top: 0; left: 0;
         width: 100vh !important; height: 100vw !important;
         transform: rotate(90deg); transform-origin: top left;
         margin-left: 100vw; overflow-y: scroll !important;
-      }}
-      .app-container {{ max-width: 100% !important; padding-bottom: 120px !important; }}
-    }}
+      }
+      .app-container { max-width: 100% !important; padding-bottom: 120px !important; }
+    }
   </style>
 </head>
 <body style="margin: 0; padding: 0;">
   <div id="root"></div>
   <script type="text/babel">
-    const {{ useState, useRef }} = React;
+    const { useState, useRef } = React;
     
-    const INITIAL_HABITS = {json.dumps(cloud_habits)};
-    const INITIAL_STARS = {json.dumps(cloud_stars)};
-    const INITIAL_NAME = "{cloud_name}";
+    const INITIAL_HABITS = INITIAL_HABITS_PLACEHOLDER;
+    const INITIAL_STARS = INITIAL_STARS_PLACEHOLDER;
+    const INITIAL_NAME = "INITIAL_NAME_PLACEHOLDER";
 
-    const THEMES = {{
-      rainbow: {{
+    const THEMES = {
+      rainbow: {
         name: "🌈 Rainbow",
         boardBg: `repeating-linear-gradient(45deg, #c8a96e 0px, #c8a96e 2px, #b8956a 2px, #b8956a 20px)`,
         boardBorder: "#8B6340",
@@ -125,10 +126,10 @@ html_code = f"""
         card: "#fff",
         shadow: "0 4px 20px rgba(232,103,58,0.15)",
         font: "'Nunito', sans-serif",
-        habitIcons: {{ default: ["⭐","🌟","✨","💫","🌠"], navIcon: "🌈", boardDecor: ["🌸","🦋","🌺","🎀","🌻","🎈"] }},
+        habitIcons: { default: ["⭐","🌟","✨","💫","🌠"], navIcon: "🌈", boardDecor: ["🌸","🦋","🌺","🎀","🌻","🎈"] },
         emptyMsg: "Tap the board to place a star!",
-      }},
-      space: {{
+      },
+      space: {
         name: "🚀 Space",
         boardBg: `radial-gradient(ellipse at 20% 30%, #1a0533 0%, #0a0a2e 40%, #000510 100%)`,
         boardBorder: "#2a1a5e",
@@ -145,14 +146,14 @@ html_code = f"""
         card: "#1a1a4e",
         shadow: "0 4px 20px rgba(0,212,255,0.2)",
         font: "'Nunito', sans-serif",
-        habitIcons: {{ default: ["🌟","💫","⚡","🌙","☄️"], navIcon: "🚀", boardDecor: ["🪐","🌙","☄️","🛸","🔭","🌌"] }},
+        habitIcons: { default: ["🌟","💫","⚡","🌙","☄️"], navIcon: "🚀", boardDecor: ["🪐","🌙","☄️","🛸","🔭","🌌"] },
         emptyMsg: "Tap to launch a star into orbit!",
-      }}
+      }
     };
 
-    function randBetween(a, b) {{ return a + Math.random() * (b - a); }}
+    function randBetween(a, b) { return a + Math.random() * (b - a); }
 
-    function App() {{
+    function App() {
       const [page, setPage] = useState("board");
       const [themeKey, setThemeKey] = useState("rainbow");
       
@@ -167,13 +168,13 @@ html_code = f"""
 
       const T = THEMES[themeKey];
 
-      const saveToCloud = async (type, updatedData) => {{
+      const saveToCloud = async (type, updatedData) => {
         console.log("Staging change locally:", type);
         localStorage.setItem("star_tracker_" + type, JSON.stringify(updatedData));
-      }};
+      };
 
-      function handleBoardTap(e) {{
-        if (popup) {{ setPopup(null); return; }}
+      function handleBoardTap(e) {
+        if (popup) { setPopup(null); return; }
         const rect = boardRef.current.getBoundingClientRect();
         const clientX = e.clientX || (e.touches && e.touches[0].clientX);
         const clientY = e.clientY || (e.touches && e.touches[0].clientY);
@@ -182,25 +183,25 @@ html_code = f"""
         const x = ((clientX - rect.left) / rect.width) * 100;
         const y = ((clientY - rect.top)  / rect.height) * 100;
         
-        setPopup({{ x, y, clientX, clientY }});
+        setPopup({ x, y, clientX, clientY });
         const activeHabits = habits.filter(h => h.active);
         setSelectedHabitId(activeHabits.length > 0 ? activeHabits[0].id.toString() : "custom");
         setCustomHabit("");
-      }}
+      }
 
-      function submitStar() {{
+      function submitStar() {
         if (!popup) return;
         let targetHabit = null;
         let finalName = customHabit.trim();
         let finalEmoji = "⭐";
 
-        if (selectedHabitId !== "custom") {{
+        if (selectedHabitId !== "custom") {
           targetHabit = habits.find(h => h.id.toString() === selectedHabitId);
-          if (targetHabit) {{
+          if (targetHabit) {
             finalName = targetHabit.name;
             finalEmoji = targetHabit.emoji;
-          }}
-        }}
+          }
+        }
         if (!finalName) return;
 
         const icons = T.habitIcons.default;
@@ -208,7 +209,7 @@ html_code = f"""
         const rot  = randBetween(-18, 18);
         const size = randBetween(28, 44);
 
-        const newStar = {{
+        const newStar = {
           id: Date.now() + Math.random(),
           x: Math.max(4, Math.min(94, popup.x)),
           y: Math.max(4, Math.min(94, popup.y)),
@@ -216,24 +217,24 @@ html_code = f"""
           habitName: finalName,
           habitEmoji: finalEmoji,
           icon, rot, size,
-        }};
+        };
 
         const updatedStars = [...boardStars, newStar];
         setBoardStars(updatedStars);
         saveToCloud("stars", updatedStars);
 
-        if (targetHabit) {{
-          const updatedHabits = habits.map(hb => hb.id === targetHabit.id ? {{ ...hb, stars: hb.stars + 1 }} : hb);
+        if (targetHabit) {
+          const updatedHabits = habits.map(hb => hb.id === targetHabit.id ? { ...hb, stars: hb.stars + 1 } : hb);
           setHabits(updatedHabits);
           saveToCloud("habits", updatedHabits);
-        }}
+        }
         setPopup(null);
-      }}
+      }
 
       return (
         <div style={{ minHeight: "100vh", background: themeKey === "space" ? "#050510" : "#f5ede0", fontFamily: T.font, color: T.text }}>
           <nav style={{ background: T.navBg, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontWeight: 900, color: T.primary }}>⭐ {{childName}}'s Tracker</div>
+            <div style={{ fontWeight: 900, color: T.primary }}>⭐ {childName}'s Tracker</div>
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => setPage("board")} style={{ background: page==="board"?T.primary:"transparent", border: "none", borderRadius: 8, padding: "6px 12px", color: page==="board"?"#fff":T.text, fontWeight: 700 }}>Board</button>
               <button onClick={() => setPage("dashboard")} style={{ background: page==="dashboard"?T.primary:"transparent", border: "none", borderRadius: 8, padding: "6px 12px", color: page==="dashboard"?"#fff":T.text, fontWeight: 700 }}>Stats</button>
@@ -241,31 +242,31 @@ html_code = f"""
           </nav>
 
           <div className="app-container" style={{ maxWidth: 560, margin: "0 auto", padding: "12px" }}>
-            {{page === "board" && (
+            {page === "board" && (
               <div>
                 <div style={{ position: "relative", width: "100%", paddingTop: "55%", background: T.boardBg, borderRadius: 18, border: `6px solid ${T.boardBorder}`, cursor: "crosshair", overflow: "hidden" }} ref={boardRef} onClick={handleBoardTap}>
-                  {{boardStars.map(star => (
-                    <div key={star.id} style={{ position: "absolute", left: `${{star.x}}%`, top: `${{star.y}}%`, fontSize: star.size, transform: `rotate(${{star.rot}}deg)`, filter: `drop-shadow(0 0 6px ${{T.starGlow}})`, pointerEvents: "none" }}>
-                      {{star.icon}}
+                  {boardStars.map(star => (
+                    <div key={star.id} style={{ position: "absolute", left: `${star.x}%`, top: `${star.y}%`, fontSize: star.size, transform: `rotate(${star.rot}deg)`, filter: `drop-shadow(0 0 6px ${T.starGlow})`, pointerEvents: "none" }}>
+                      {star.icon}
                     </div>
-                  ))}}
+                  ))}
 
-                  {{popup && (
+                  {popup && (
                     <div onClick={e => e.stopPropagation()} style={{ position: "absolute", left: "20%", top: "15%", width: 220, background: "#fff", padding: 12, borderRadius: 12, zIndex: 99, boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
                       <select value={selectedHabitId} onChange={e => setSelectedHabitId(e.target.value)} style={{ width: "100%", padding: 6, marginBottom: 8 }}>
-                        {{habits.map(h => <option key={h.id} value={h.id.toString()}>{{h.emoji}} {{h.name}}</option>)}}
+                        {habits.map(h => <option key={h.id} value={h.id.toString()}>{h.emoji} {h.name}</option>)}
                         <option value="custom">➕ Custom...</option>
                       </select>
                       <button onClick={submitStar} style={{ width: "100%", background: T.primary, color: "#fff", border: "none", padding: 6, borderRadius: 6, fontWeight: 700 }}>Add Star</button>
                     </div>
-                  )}}
+                  )}
                 </div>
               </div>
-            )}}
+            )}
           </div>
         </div>
       );
-    }}
+    }
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
@@ -274,11 +275,14 @@ html_code = f"""
 </html>
 """
 
+# Safe context placeholder injections to prevent Python-side f-string brace syntax crashes
+html_code = html_code.replace("INITIAL_HABITS_PLACEHOLDER", json.dumps(cloud_habits))
+html_code = html_code.replace("INITIAL_STARS_PLACEHOLDER", json.dumps(cloud_stars))
+html_code = html_code.replace("INITIAL_NAME_PLACEHOLDER", cloud_name)
+
 components.html(html_code, height=650, scrolling=True)
 
 # 3. INTERACTIVE PYTHON-SIDE DISK SYNCHRONIZER
 if st.button("☁️ Force Sync App Data to Google Sheet"):
     st.info("Synchronizing data directly to your connected Google Sheet tabs...")
-
-
     
