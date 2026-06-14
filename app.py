@@ -67,8 +67,16 @@ def load_cloud_data():
             
     return default_habits, [], "My Star!"
 
-# Load current cloud state cleanly before page paint
-cloud_habits, cloud_stars, cloud_name = load_cloud_data()
+# OPTIMIZATION: Cache cloud state in session_state to prevent pulling from Google Sheets on every single rerun
+if "cloud_habits" not in st.session_state:
+    cloud_habits, cloud_stars, cloud_name = load_cloud_data()
+    st.session_state["cloud_habits"] = cloud_habits
+    st.session_state["cloud_stars"] = cloud_stars
+    st.session_state["cloud_name"] = cloud_name
+else:
+    cloud_habits = st.session_state["cloud_habits"]
+    cloud_stars = st.session_state["cloud_stars"]
+    cloud_name = st.session_state["cloud_name"]
 
 # =====================================================================
 # 2. RAW INTERACTIVE ENGINE WITH BI-DIRECTIONAL DATA BRIDGE
@@ -245,12 +253,9 @@ html_code = """
       const sortedMilestones = [...milestones].sort((a, b) => a.stars - b.stars);
       const nextMilestone = sortedMilestones.find(m => m.stars > totalStars);
 
-      // FIXED: Handshake protocol messages so Streamlit registers the custom iframe instantly
       useEffect(() => {
         if (window.parent) {
-          // Send mandatory component ready signal
           window.parent.postMessage({ type: "streamlit:componentReady", version: 1 }, "*");
-          // Adjust layout wrapper height
           window.parent.postMessage({ type: "streamlit:setFrameHeight", height: 850 }, "*");
         }
       }, []);
@@ -626,12 +631,12 @@ html_code = """
 </html>
 """
 
-# Dynamic context placeholder variables injections
+# Dynamic context placeholder variables injections using cached session state variables
 html_code = html_code.replace("INITIAL_HABITS_PLACEHOLDER", json.dumps(cloud_habits))
 html_code = html_code.replace("INITIAL_STARS_PLACEHOLDER", json.dumps(cloud_stars))
 html_code = html_code.replace("INITIAL_NAME_PLACEHOLDER", cloud_name)
 
-# FIXED: Strict absolute path generation for rock-solid workspace tracking across deployments
+# Strict absolute path generation for rock-solid workspace tracking across deployments
 PARENT_DIR = os.path.dirname(os.path.abspath(__file__))
 COMPONENT_DIR = os.path.join(PARENT_DIR, "tracker_frontend")
 
@@ -653,12 +658,17 @@ if component_data:
     incoming_habits = component_data.get("habits", [])
     incoming_name = component_data.get("child_name", "My Star!")
     
-    # Generate unique fingerprint identifier to capture true updates and avoid looping writes
-    state_fingerprint = f"{len(incoming_stars)}-{len(incoming_habits)}-{incoming_name}"
-    
-    if state_fingerprint != st.session_state.get("last_state_fingerprint"):
-        st.session_state["last_state_fingerprint"] = state_fingerprint
+    # Check if anything actually changed compared to our cached local session state to block infinite loops
+    if (incoming_stars != st.session_state.get("cloud_stars") or 
+        incoming_habits != st.session_state.get("cloud_habits") or 
+        incoming_name != st.session_state.get("cloud_name")):
         
+        # Immediately update session state cache so the next execution has instant data
+        st.session_state["cloud_habits"] = incoming_habits
+        st.session_state["cloud_stars"] = incoming_stars
+        st.session_state["cloud_name"] = incoming_name
+        
+        # Safely execute writes to Google Sheets only when an explicit change is committed
         if conn is not None:
             try:
                 conn.update(worksheet="Habits", data=pd.DataFrame(incoming_habits))
