@@ -1,1 +1,4 @@
 streamlit==1.35.0
+gspread==6.1.2
+gspread-dataframe==4.0.0
+pandas==2.2.2
