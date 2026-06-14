@@ -1,8 +1,27 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import gspread
 import json
 import pandas as pd
+
+# Standard Page Configuration must be the absolute first Streamlit command
+st.set_page_config(
+    page_title="Star Habit Tracker",
+    page_icon="⭐",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# Hide Streamlit canvas wrapper elements & clean out padding parameters
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    div[data-testid="stDecoration"] {visibility: hidden;}
+    .block-container {padding: 0rem !important;}
+    iframe {max-width: 100% !important;}
+    </style>
+""", unsafe_allow_html=True)
 
 # 1. Initialize the secure Google Sheets connection from secrets automatically
 try:
@@ -22,47 +41,35 @@ def load_cloud_data():
         {"id": 6, "name": "Washed Hands", "emoji": "🤲", "active": True, "stars": 0}
     ]
     
-    if conn:
+    if conn is not None:
         try:
-            # Streamlit reads automatically using the spreadsheet configuration in your secrets text box
-            habits_df = conn.read(worksheet="Habits")
-            stars_df = conn.read(worksheet="Stars")
+            # Read worksheets safely with fail-safes for completely empty tabs
+            try:
+                habits_df = conn.read(worksheet="Habits")
+                habits = habits_df.to_dict(orient="records") if (habits_df is not None and not habits_df.empty) else default_habits
+            except Exception:
+                habits = default_habits
+
+            try:
+                stars_df = conn.read(worksheet="Stars")
+                stars = stars_df.to_dict(orient="records") if (stars_df is not None and not stars_df.empty) else []
+            except Exception:
+                stars = []
             
             try:
                 settings_df = conn.read(worksheet="Settings")
-                child_name = settings_df.iloc[0]["child_name"] if not settings_df.empty else "My Star!"
+                child_name = settings_df.iloc[0]["child_name"] if (settings_df is not None and not settings_df.empty) else "My Star!"
             except Exception:
                 child_name = "My Star!"
             
-            habits = habits_df.to_dict(orient="records") if not habits_df.empty else default_habits
-            stars = stars_df.to_dict(orient="records") if not stars_df.empty else []
             return habits, stars, child_name
         except Exception:
             return default_habits, [], "My Star!"
+            
     return default_habits, [], "My Star!"
 
 # Load current cloud state cleanly before page paint
 cloud_habits, cloud_stars, cloud_name = load_cloud_data()
-
-# Standard Page Configuration
-st.set_page_config(
-    page_title="Star Habit Tracker",
-    page_icon="⭐",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# Hide Streamlit canvas wrapper elements & clean out padding parameters
-st.markdown("""
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    div[data-testid="stDecoration"] {visibility: hidden;}
-    .block-container {padding: 0rem !important;}
-    iframe {max-width: 100% !important;}
-    </style>
-""", unsafe_allow_html=True)
 
 # =====================================================================
 # 2. RAW INTERACTIVE ENGINE WITH STREAMLIT DATA BRIDGE
@@ -272,4 +279,6 @@ components.html(html_code, height=650, scrolling=True)
 # 3. INTERACTIVE PYTHON-SIDE DISK SYNCHRONIZER
 if st.button("☁️ Force Sync App Data to Google Sheet"):
     st.info("Synchronizing data directly to your connected Google Sheet tabs...")
-    # This button processes updates between state instances
+
+
+    
