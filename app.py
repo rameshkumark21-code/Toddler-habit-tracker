@@ -1,33 +1,34 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import gspread
-import pandas as pd
 import json
 
-# =====================================================================
-# 1. GOOGLE SHEETS SETUP
-# =====================================================================
-# REPLACES LOCALSTORAGE WITH CLOUD BACKEND
+# Initialize the secure Google Sheets connection from secrets automatically
 try:
-    # Authenticate anonymously using your "Anyone with link can Edit" permission
-    gc = gspread.oauth_client() # Streamlit handles public sheet connection via gspread
+    conn = st.connection("gsheets", type=st.connections.GSheetsConnection)
 except Exception:
-    # Standard fallback connection method for public/edited sheets via URL
-    pass
+    conn = None
 
-SHEET_URL = "https://docs.google.com/spreadsheets/d/14ElsU6y_ydi_REpCFbwDeNpQbt3zVG3AHXSZW7XObrA/edit?usp=sharing"
+# Pull sheet configuration securely without exposing IDs in code
+def load_cloud_data():
+    default_habits = [
+        {"id": 1, "name": "Brushed Teeth", "emoji": "🦷", "active": True, "stars": 0},
+        {"id": 2, "name": "Ate Vegetables", "emoji": "🥦", "active": True, "stars": 0}
+    ]
+    
+    if conn:
+        try:
+            # Streamlit reads automatically using the spreadsheet URL defined in your secrets
+            habits_df = conn.read(worksheet="Habits")
+            stars_df = conn.read(worksheet="Stars")
+            
+            habits = habits_df.to_dict(orient="records") if not habits_df.empty else default_habits
+            stars = stars_df.to_dict(orient="records") if not stars_df.empty else []
+            return habits, stars, "My Star!"
+        except Exception:
+            return default_habits, [], "My Star!"
+    return default_habits, [], "My Star!"
 
-def get_sheet_connection():
-    """Connects to the spreadsheet and ensures required sheets/headers exist."""
-    try:
-        # Connect using st.connection or raw gspread via credentials-free url parsing
-        gc_anon = gspread.public(SHEET_URL)
-        # Note: For public-link write access, we read/write via standard URL endpoints
-        # To make it incredibly stable, we will pass data securely through a hidden endpoint
-        return SHEET_URL
-    except Exception as e:
-        return None
-
+cloud_habits, cloud_stars, cloud_name = load_cloud_data()
 # Standard Page Configuration
 st.set_page_config(
     page_title="Star Habit Tracker",
