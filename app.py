@@ -15,7 +15,7 @@ except Exception:
     # Standard fallback connection method for public/edited sheets via URL
     pass
 
-SHEET_URL = "PASTE_YOUR_GOOGLE_SHEET_URL_HERE"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/14ElsU6y_ydi_REpCFbwDeNpQbt3zVG3AHXSZW7XObrA/edit?usp=sharing"
 
 def get_sheet_connection():
     """Connects to the spreadsheet and ensures required sheets/headers exist."""
