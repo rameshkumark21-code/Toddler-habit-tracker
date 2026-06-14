@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import json
 import pandas as pd
 import os
+import hashlib
 
 # Standard Page Configuration must be the absolute first Streamlit command
 st.set_page_config(
@@ -45,13 +46,25 @@ def load_cloud_data():
         try:
             try:
                 habits_df = conn.read(worksheet="Habits")
-                habits = habits_df.to_dict(orient="records") if (habits_df is not None and not habits_df.empty) else default_habits
+                if habits_df is not None and not habits_df.empty:
+                    # Clean up NaN values to prevent raw NaN JS compilation breakages
+                    habits_df = habits_df.fillna("")
+                    # Re-verify active column maps cleanly to true booleans
+                    if "active" in habits_df.columns:
+                        habits_df["active"] = habits_df["active"].apply(lambda x: x in [True, 1, "True", "true", "ON", "on"])
+                    habits = habits_df.to_dict(orient="records")
+                else:
+                    habits = default_habits
             except Exception:
                 habits = default_habits
 
             try:
                 stars_df = conn.read(worksheet="Stars")
-                stars = stars_df.to_dict(orient="records") if (stars_df is not None and not stars_df.empty) else []
+                if stars_df is not None and not stars_df.empty:
+                    stars_df = stars_df.fillna("")
+                    stars = stars_df.to_dict(orient="records")
+                else:
+                    stars = []
             except Exception:
                 stars = []
             
@@ -67,16 +80,8 @@ def load_cloud_data():
             
     return default_habits, [], "My Star!"
 
-# OPTIMIZATION: Cache cloud state in session_state to prevent pulling from Google Sheets on every single rerun
-if "cloud_habits" not in st.session_state:
-    cloud_habits, cloud_stars, cloud_name = load_cloud_data()
-    st.session_state["cloud_habits"] = cloud_habits
-    st.session_state["cloud_stars"] = cloud_stars
-    st.session_state["cloud_name"] = cloud_name
-else:
-    cloud_habits = st.session_state["cloud_habits"]
-    cloud_stars = st.session_state["cloud_stars"]
-    cloud_name = st.session_state["cloud_name"]
+# Load current cloud state cleanly before page paint
+cloud_habits, cloud_stars, cloud_name = load_cloud_data()
 
 # =====================================================================
 # 2. RAW INTERACTIVE ENGINE WITH BI-DIRECTIONAL DATA BRIDGE
@@ -101,7 +106,7 @@ html_code = """
 
     const INITIAL_HABITS_DATA = INITIAL_HABITS_PLACEHOLDER;
     const INITIAL_STARS_DATA = INITIAL_STARS_PLACEHOLDER;
-    const INITIAL_NAME_DATA = "INITIAL_NAME_PLACEHOLDER";
+    const INITIAL_NAME_DATA = INITIAL_NAME_PLACEHOLDER;
 
     const THEMES = {
       rainbow: {
@@ -220,18 +225,11 @@ html_code = """
       const [page, setPage]           = useState("board");
       const [themeKey, setThemeKey]   = useState("rainbow");
       
-      const [habits, setHabits]       = useState(() => {
-        const local = localStorage.getItem("star_tracker_habits");
-        return local ? JSON.parse(local) : INITIAL_HABITS_DATA;
-      });
-      const [boardStars, setBoardStars] = useState(() => {
-        const local = localStorage.getItem("star_tracker_stars");
-        return local ? JSON.parse(local) : INITIAL_STARS_DATA;
-      });
-      const [childName, setChildName] = useState(() => {
-        const local = localStorage.getItem("star_tracker_name");
-        return local || INITIAL_NAME_DATA;
-      });
+      // FIXED: Prioritize standard cloud data stream over local storage mirrors
+      const [habits, setHabits]       = useState(INITIAL_HABITS_DATA);
+      const [boardStars, setBoardStars] = useState(INITIAL_STARS_DATA);
+      const [childName, setChildName] = useState(INITIAL_NAME_DATA);
+      
       const [milestones, setMilestones] = useState(() => {
         const local = localStorage.getItem("star_tracker_milestones");
         return local ? JSON.parse(local) : DEFAULT_MILESTONES;
@@ -631,12 +629,13 @@ html_code = """
 </html>
 """
 
-# Dynamic context placeholder variables injections using cached session state variables
+# Dynamic context placeholder variables injections
 html_code = html_code.replace("INITIAL_HABITS_PLACEHOLDER", json.dumps(cloud_habits))
 html_code = html_code.replace("INITIAL_STARS_PLACEHOLDER", json.dumps(cloud_stars))
-html_code = html_code.replace("INITIAL_NAME_PLACEHOLDER", cloud_name)
+# FIXED: Safe serialization for child_name string placeholder to avoid token breakdown
+html_code = html_code.replace("INITIAL_NAME_PLACEHOLDER", json.dumps(cloud_name))
 
-# Strict absolute path generation for rock-solid workspace tracking across deployments
+# FIXED: Strict absolute path generation for rock-solid workspace tracking across deployments
 PARENT_DIR = os.path.dirname(os.path.abspath(__file__))
 COMPONENT_DIR = os.path.join(PARENT_DIR, "tracker_frontend")
 
@@ -658,17 +657,13 @@ if component_data:
     incoming_habits = component_data.get("habits", [])
     incoming_name = component_data.get("child_name", "My Star!")
     
-    # Check if anything actually changed compared to our cached local session state to block infinite loops
-    if (incoming_stars != st.session_state.get("cloud_stars") or 
-        incoming_habits != st.session_state.get("cloud_habits") or 
-        incoming_name != st.session_state.get("cloud_name")):
+    # FIXED: Generate a robust MD5 hash fingerprint of the actual data contents to accurately catch any internal changes
+    state_payload = {"stars": incoming_stars, "habits": incoming_habits, "child_name": incoming_name}
+    state_fingerprint = hashlib.md5(json.dumps(state_payload, sort_keys=True).encode()).hexdigest()
+    
+    if state_fingerprint != st.session_state.get("last_state_fingerprint"):
+        st.session_state["last_state_fingerprint"] = state_fingerprint
         
-        # Immediately update session state cache so the next execution has instant data
-        st.session_state["cloud_habits"] = incoming_habits
-        st.session_state["cloud_stars"] = incoming_stars
-        st.session_state["cloud_name"] = incoming_name
-        
-        # Safely execute writes to Google Sheets only when an explicit change is committed
         if conn is not None:
             try:
                 conn.update(worksheet="Habits", data=pd.DataFrame(incoming_habits))
