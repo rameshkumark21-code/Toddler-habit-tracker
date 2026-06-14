@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 import pandas as pd
+import os
 
 # Standard Page Configuration must be the absolute first Streamlit command
 st.set_page_config(
@@ -19,7 +20,7 @@ st.markdown("""
     header {visibility: hidden;}
     div[data-testid="stDecoration"] {visibility: hidden;}
     .block-container {padding: 0rem !important;}
-    iframe {max-width: 100% !important;}
+    iframe {max-width: 100% !important; border: none !important;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -29,7 +30,6 @@ try:
 except Exception:
     conn = None
 
-# Pull sheet configuration securely without exposing IDs in code
 def load_cloud_data():
     """Loads all tracking data directly from the Google Sheet tabs via Secrets configuration."""
     default_habits = [
@@ -71,9 +71,8 @@ def load_cloud_data():
 cloud_habits, cloud_stars, cloud_name = load_cloud_data()
 
 # =====================================================================
-# 2. RAW INTERACTIVE ENGINE WITH STREAMLIT DATA BRIDGE
+# 2. RAW INTERACTIVE ENGINE WITH BI-DIRECTIONAL DATA BRIDGE
 # =====================================================================
-# Standard string block to prevent Python-side curly brace evaluation conflicts
 html_code = """
 <!DOCTYPE html>
 <html lang="en">
@@ -90,7 +89,7 @@ html_code = """
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useRef } = React;
+    const { useState, useRef, useEffect } = React;
 
     const INITIAL_HABITS_DATA = INITIAL_HABITS_PLACEHOLDER;
     const INITIAL_STARS_DATA = INITIAL_STARS_PLACEHOLDER;
@@ -213,10 +212,19 @@ html_code = """
       const [page, setPage]           = useState("board");
       const [themeKey, setThemeKey]   = useState("rainbow");
       
-      const [habits, setHabits]       = useState(INITIAL_HABITS_DATA);
-      const [boardStars, setBoardStars] = useState(INITIAL_STARS_DATA);
-      const [childName, setChildName] = useState(INITIAL_NAME_DATA);
-
+      // Initialize states smoothly checking local cache fallbacks first
+      const [habits, setHabits]       = useState(() => {
+        const local = localStorage.getItem("star_tracker_habits");
+        return local ? JSON.parse(local) : INITIAL_HABITS_DATA;
+      });
+      const [boardStars, setBoardStars] = useState(() => {
+        const local = localStorage.getItem("star_tracker_stars");
+        return local ? JSON.parse(local) : INITIAL_STARS_DATA;
+      });
+      const [childName, setChildName] = useState(() => {
+        const local = localStorage.getItem("star_tracker_name");
+        return local || INITIAL_NAME_DATA;
+      });
       const [milestones, setMilestones] = useState(() => {
         const local = localStorage.getItem("star_tracker_milestones");
         return local ? JSON.parse(local) : DEFAULT_MILESTONES;
@@ -238,17 +246,38 @@ html_code = """
       const sortedMilestones = [...milestones].sort((a, b) => a.stars - b.stars);
       const nextMilestone = sortedMilestones.find(m => m.stars > totalStars);
 
+      // Force frame sizing wrapper rules on mount so UI fills correctly inside Streamlit
+      useEffect(() => {
+        if (window.parent) {
+          window.parent.postMessage({ isStreamlitMessage: true, type: "streamlit:setFrameHeight", height: 850 }, "*");
+        }
+      }, []);
+
+      // Two-way messaging pipeline down into Streamlit Parent Python handler
+      const syncWithPythonCloud = (updatedHabits, updatedStars, updatedName) => {
+        if (window.parent) {
+          window.parent.postMessage({
+            isStreamlitMessage: true,
+            type: "streamlit:setComponentValue",
+            value: { habits: updatedHabits, stars: updatedStars, child_name: updatedName }
+          }, "*");
+        }
+      };
+
       const saveHabits = (newH) => { 
         setHabits(newH); 
         localStorage.setItem("star_tracker_habits", JSON.stringify(newH)); 
+        syncWithPythonCloud(newH, boardStars, childName);
       };
       const saveStars = (newS) => { 
         setBoardStars(newS); 
         localStorage.setItem("star_tracker_stars", JSON.stringify(newS)); 
+        syncWithPythonCloud(habits, newS, childName);
       };
       const saveName = (name) => { 
         setChildName(name); 
         localStorage.setItem("star_tracker_name", name); 
+        syncWithPythonCloud(habits, boardStars, name);
       };
       const saveMilestones = (newM) => { 
         setMilestones(newM); 
@@ -302,18 +331,22 @@ html_code = """
           habitId: targetHabit ? targetHabit.id : null,
           habitName: finalName,
           habitEmoji: finalEmoji,
-          icon,
-          rot,
-          size,
+          icon, rot, size,
         };
 
         const updatedStars = [...boardStars, newStar];
-        saveStars(updatedStars);
+        let updatedHabits = habits;
 
         if (targetHabit) {
-          const updatedHabits = habits.map(hb => hb.id === targetHabit.id ? { ...hb, stars: hb.stars + 1 } : hb);
-          saveHabits(updatedHabits);
+          updatedHabits = habits.map(hb => hb.id === targetHabit.id ? { ...hb, stars: hb.stars + 1 } : hb);
         }
+
+        setBoardStars(updatedStars);
+        setHabits(updatedHabits);
+        localStorage.setItem("star_tracker_stars", JSON.stringify(updatedStars));
+        localStorage.setItem("star_tracker_habits", JSON.stringify(updatedHabits));
+        
+        syncWithPythonCloud(updatedHabits, updatedStars, childName);
         setPopup(null);
       }
 
@@ -329,8 +362,13 @@ html_code = """
 
       function resetBoard() {
         if (window.confirm("Clear all stars from the board?")) {
-          saveStars([]);
-          saveHabits(habits.map(x => ({ ...x, stars: 0 })));
+          const updatedStars = [];
+          const updatedHabits = habits.map(x => ({ ...x, stars: 0 }));
+          setBoardStars(updatedStars);
+          setHabits(updatedHabits);
+          localStorage.setItem("star_tracker_stars", JSON.stringify(updatedStars));
+          localStorage.setItem("star_tracker_habits", JSON.stringify(updatedHabits));
+          syncWithPythonCloud(updatedHabits, updatedStars, childName);
         }
       }
 
@@ -354,11 +392,9 @@ html_code = """
               50%       { transform: translateY(-5px); }
             }
             .board-star {
-              position: absolute;
-              cursor: default;
+              position: absolute; cursor: default;
               animation: floatIn 0.45s cubic-bezier(.34,1.56,.64,1) forwards, pulse 2.5s ease-in-out infinite 0.5s;
-              user-select: none;
-              pointer-events: none;
+              user-select: none; pointer-events: none;
             }
             .nav-tab {
               padding: 13px 14px; border: none; background: transparent;
@@ -372,9 +408,7 @@ html_code = """
               font-family: inherit; font-size: inherit; font-weight: inherit;
               color: inherit; width: 100%; border-radius: 4px; padding: 2px 4px;
             }
-            .milestone-input:focus {
-              background: rgba(0,0,0,0.05); border-color: #888; outline: none;
-            }
+            .milestone-input:focus { background: rgba(0,0,0,0.05); border-color: #888; outline: none; }
           `}</style>
 
           {/* ── NAV BAR ── */}
@@ -435,7 +469,7 @@ html_code = """
                     </div>
                   ))}
 
-                  {/* ── RESPONSIVE ADAPTIVE PLACEMENT POPUP DROPDOWN ── */}
+                  {/* ── RESPONSIVE PLACEMENT DROPDOWN ── */}
                   {popup && (() => {
                     const rect = boardRef.current?.getBoundingClientRect();
                     const popW = 250;
@@ -447,14 +481,8 @@ html_code = """
                       <div onClick={e => e.stopPropagation()} style={{ position: "absolute", left: clampedLeft, ...(fromBottom < 170 ? { bottom: (rect?.height ?? 400) - (popup.clientY - (rect?.top ?? 0)) + 12 } : { top: rawTop }), width: popW, background: T.card, borderRadius: 16, padding: "14px 12px", boxShadow: "0 8px 32px rgba(0,0,0,0.28)", border: `2px solid ${T.navBorder}`, zIndex: 50 }}>
                         <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 8, color: T.text }}>⭐ Select earned habit:</div>
                         
-                        <select 
-                          value={selectedHabitId} 
-                          onChange={e => setSelectedHabitId(e.target.value)}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 10, border: `1.5px solid ${T.navBorder}`, background: T.navBg, color: T.text, fontSize: 14, fontWeight: 600, outline: "none", marginBottom: 10 }}
-                        >
-                          {activeHabits.map(h => (
-                            <option key={h.id} value={h.id}>{h.emoji} {h.name}</option>
-                          ))}
+                        <select value={selectedHabitId} onChange={e => setSelectedHabitId(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, border: `1.5px solid ${T.navBorder}`, background: T.navBg, color: T.text, fontSize: 14, fontWeight: 600, outline: "none", marginBottom: 10 }}>
+                          {activeHabits.map(h => <option key={h.id} value={h.id}>{h.emoji} {h.name}</option>)}
                           <option value="custom">➕ Custom...</option>
                         </select>
 
@@ -480,7 +508,7 @@ html_code = """
               </div>
             )}
 
-            {/* ══ VIEW: STATS & DASHBOARD BREAKDOWN ══ */}
+            {/* ══ VIEW: STATS & DASHBOARD ══ */}
             {page === "dashboard" && (
               <div>
                 <div style={{ textAlign: "center", marginBottom: 20 }}>
@@ -491,7 +519,6 @@ html_code = """
                   <div style={{ fontSize: 58, lineHeight: 1 }}>⭐</div>
                   <div style={{ fontSize: 52, fontWeight: 900, lineHeight: 1.1 }}>{totalStars}</div>
                   <div style={{ fontSize: 15, fontWeight: 700, opacity: 0.9, marginTop: 4 }}>Total Stars on Board</div>
-                  <div style={{ fontSize: 13, opacity: 0.8, marginTop: 2 }}>{childName}</div>
                 </div>
 
                 <div style={{ background: T.card, borderRadius: 20, padding: 16, boxShadow: T.shadow, marginBottom: 16 }}>
@@ -513,11 +540,9 @@ html_code = """
                   )}
                 </div>
 
-                {/* INTERACTIVE CUSTOM EDITABLE MILESTONES */}
                 <div style={{ background: T.card, borderRadius: 20, padding: 16, boxShadow: T.shadow, marginBottom: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                     <div style={{ fontWeight: 800, fontSize: 15 }}>🏆 Milestones</div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: T.subtext }}>Tap text to customize</span>
                   </div>
                   {milestones.map((m, i) => {
                     const done = totalStars >= m.stars;
@@ -538,7 +563,6 @@ html_code = """
                     );
                   })}
                 </div>
-                <button onClick={resetBoard} style={{ width: "100%", padding: "13px", border: `2px solid ${T.primary}`, background: "transparent", borderRadius: 14, color: T.primary, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: T.font }}>🔄 Reset All Stars</button>
               </div>
             )}
 
@@ -601,14 +625,41 @@ html_code = """
 </html>
 """
 
-# Context placeholder injections directly inside pure text variables
+# Dynamic context placeholder variables injections
 html_code = html_code.replace("INITIAL_HABITS_PLACEHOLDER", json.dumps(cloud_habits))
 html_code = html_code.replace("INITIAL_STARS_PLACEHOLDER", json.dumps(cloud_stars))
 html_code = html_code.replace("INITIAL_NAME_PLACEHOLDER", cloud_name)
 
-# Display canvas with sufficient frame depth to handle pagination rendering smoothly
-components.html(html_code, height=750, scrolling=True)
+# 3. DYNAMIC WORKSPACE DIRECTORY STORAGE FOR TWO-WAY COMPONENTS
+if not os.path.exists("tracker_frontend"):
+    os.makedirs("tracker_frontend")
+    
+with open("tracker_frontend/index.html", "w", encoding="utf-8") as f:
+    f.write(html_code)
 
-# 3. INTERACTIVE PYTHON-SIDE DISK SYNCHRONIZER
-if st.button("☁️ Force Sync App Data to Google Sheet"):
-    st.info("Synchronizing data directly to your connected Google Sheet tabs...")
+# Compile standard two-way connection listener
+star_tracker_component = components.declare_component("star_tracker_component", path="tracker_frontend")
+
+# Render active layout frame and accept incoming save-state updates from React
+component_data = star_tracker_component(key="main_tracker")
+
+# 4. INSTANT BACKEND DISK SYNCHRONIZATION EVENT LISTENER
+if component_data:
+    incoming_stars = component_data.get("stars", [])
+    incoming_habits = component_data.get("habits", [])
+    incoming_name = component_data.get("child_name", "My Star!")
+    
+    # Generate unique fingerprint identifier to capture true updates and avoid looping writes
+    state_fingerprint = f"{len(incoming_stars)}-{len(incoming_habits)}-{incoming_name}"
+    
+    if state_fingerprint != st.session_state.get("last_state_fingerprint"):
+        st.session_state["last_state_fingerprint"] = state_fingerprint
+        
+        if conn is not None:
+            try:
+                conn.update(worksheet="Habits", data=pd.DataFrame(incoming_habits))
+                conn.update(worksheet="Stars", data=pd.DataFrame(incoming_stars))
+                conn.update(worksheet="Settings", data=pd.DataFrame([{"child_name": incoming_name}]))
+            except Exception:
+                pass
+        st.rerun()
