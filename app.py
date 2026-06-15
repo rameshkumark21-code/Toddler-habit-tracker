@@ -28,8 +28,8 @@ st.markdown("""
 # Requires [connections.gsheets] in .streamlit/secrets.toml
 # See: https://docs.streamlit.io/develop/api-reference/connections/st.connections.gsheetsconnection
 try:
-    conn = st.connection("gsheets", type=st.connections.GSheetsConnection)
-except Exception:
+from streamlit_gsheets import GSheetsConnection
+conn = st.connection("gsheets", type=GSheetsConnection)except Exception:
     conn = None
 
 DEFAULT_HABITS = [
