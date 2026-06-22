@@ -505,8 +505,8 @@ def build_html(habits, stars, child_name, theme_key):
 
       return (
         <div style={{{{minHeight:"100vh",background:T.pageBg,fontFamily:"'Nunito',sans-serif",color:T.text}}}}>
-          {{confetti && <ConfettiCanvas colors={{{{T.confettiColors}}}} onDone={{{{()=>setConfetti(false)}}}} />}}
-          {{milestone && <MilestoneToast milestone={{{{milestone}}}} onDone={{{{()=>setMilestone(null)}}}} />}}
+          {{confetti && <ConfettiCanvas colors={{T.confettiColors}} onDone={{()=>setConfetti(false)}} />}}
+          {{milestone && <MilestoneToast milestone={{milestone}} onDone={{()=>setMilestone(null)}} />}}
 
           <nav style={{{{
             background:T.navBg, borderBottom:`2px solid ${{T.navBorder}}`,
@@ -520,7 +520,7 @@ def build_html(habits, stars, child_name, theme_key):
                 {{key:"dashboard", label:"📊 Dashboard"}},
                 {{key:"manage",    label:"⚙️ Habits"}},
               ].map(tab=>(
-                <button key={{{{tab.key}}}} className="nav-tab" onClick={{{{()=>setPage(tab.key)}}}}
+                <button key={{tab.key}} className="nav-tab" onClick={{()=>setPage(tab.key)}}
                   style={{{{
                     fontFamily:"'Nunito',sans-serif",
                     color: page===tab.key ? T.primary : T.subtext,
@@ -530,7 +530,7 @@ def build_html(habits, stars, child_name, theme_key):
                 </button>
               ))}}
             </div>
-            <button onClick={{{{()=>setShowThemePanel(p=>!p)}}}}
+            <button onClick={{()=>setShowThemePanel(p=>!p)}}
               style={{{{background:T.primary,color:"#fff",border:"none",borderRadius:20,padding:"6px 14px",fontWeight:700,fontSize:13,cursor:"pointer"}}}}>
               🎨 Theme
             </button>
@@ -544,7 +544,7 @@ def build_html(habits, stars, child_name, theme_key):
             }}}}>
               <div style={{{{fontWeight:800,fontSize:14,marginBottom:10,color:T.text}}}}>Choose Theme</div>
               {{Object.entries(THEMES).map(([key,th])=>(
-                <button key={{{{key}}}} onClick={{{{()=>changeTheme(key)}}}}
+                <button key={{key}} onClick={{()=>changeTheme(key)}}
                   style={{{{
                     display:"block",width:"100%",textAlign:"left",padding:"9px 14px",marginBottom:4,
                     borderRadius:10,
@@ -576,7 +576,7 @@ def build_html(habits, stars, child_name, theme_key):
                   background:T.boardBg,borderRadius:18,
                   border:`8px solid ${{T.boardBorder}}`,boxShadow:T.boardShadow,
                   cursor:"crosshair",overflow:"hidden",marginBottom:14,
-                }}}} ref={{{{boardRef}}}} onClick={{{{handleBoardTap}}}}>
+                }}}} ref={{boardRef}} onClick={{handleBoardTap}}>
 
                   <div style={{{{
                     position:"absolute",inset:0,borderRadius:10,
@@ -591,7 +591,7 @@ def build_html(habits, stars, child_name, theme_key):
                       {{top:"4%",left:"44%"}},{{bottom:"4%",left:"44%"}},
                     ];
                     return (
-                      <div key={{{{i}}}} style={{{{
+                      <div key={{i}} style={{{{
                         position:"absolute",fontSize:22,...positions[i%6],
                         opacity:0.55,zIndex:2,pointerEvents:"none",
                         animation:`boardDecorFloat ${{2.5+i*0.4}}s ease-in-out infinite`,
@@ -616,7 +616,7 @@ def build_html(habits, stars, child_name, theme_key):
                   )}}
 
                   {{boardStars.map(star=>(
-                    <div key={{{{star.id}}}} className="board-star" title={{{{star.habitName}}}}
+                    <div key={{star.id}} className="board-star" title={{star.habitName}}
                       style={{{{
                         left:`${{star.x}}%`,top:`${{star.y}}%`,fontSize:star.size,
                         "--rot":`${{star.rot}}deg`,"--glow":T.starGlow,"--glow2":T.starGlow,
@@ -644,7 +644,7 @@ def build_html(habits, stars, child_name, theme_key):
                     const rawT=popup.clientY-(rect?.top??0)+12;
                     const above=(rect?.height??400)-rawT<170;
                     return (
-                      <div onClick={{{{e=>e.stopPropagation()}}}} style={{{{
+                      <div onClick={{e=>e.stopPropagation()}} style={{{{
                         position:"absolute",left,
                         ...(above
                           ? {{bottom:(rect?.height??400)-(popup.clientY-(rect?.top??0))+12}}
@@ -658,9 +658,9 @@ def build_html(habits, stars, child_name, theme_key):
                         </div>
                         <div style={{{{maxHeight:150,overflowY:"auto",marginBottom:8}}}}>
                           {{activeHabits.map(h=>(
-                            <div key={{{{h.id}}}} className="habit-pill"
+                            <div key={{h.id}} className="habit-pill"
                               style={{{{background:T.primary+"18",borderColor:T.navBorder}}}}
-                              onClick={{{{()=>placeStarForHabit(h)}}}}>
+                              onClick={{()=>placeStarForHabit(h)}}>
                               <span style={{{{fontSize:22}}}}>{{h.emoji}}</span>
                               <span style={{{{fontWeight:700,fontSize:13,color:T.text}}}}>{{h.name}}</span>
                             </div>
@@ -669,8 +669,8 @@ def build_html(habits, stars, child_name, theme_key):
                         <div style={{{{borderTop:`1px solid ${{T.navBorder}}`,paddingTop:8}}}}>
                           <div style={{{{fontSize:11,fontWeight:700,color:T.subtext,marginBottom:5}}}}>OR TYPE A HABIT</div>
                           <div style={{{{display:"flex",gap:6}}}}>
-                            <input value={{{{customHabit}}}} onChange={{{{e=>setCustomHabit(e.target.value)}}}}
-                              onKeyDown={{{{e=>e.key==="Enter"&&placeCustomStar()}}}}
+                            <input value={{customHabit}} onChange={{e=>setCustomHabit(e.target.value)}}
+                              onKeyDown={{e=>e.key==="Enter"&&placeCustomStar()}}
                               placeholder="e.g. Shared toys..."
                               style={{{{
                                 flex:1,padding:"7px 10px",borderRadius:10,
@@ -678,13 +678,13 @@ def build_html(habits, stars, child_name, theme_key):
                                 fontFamily:"'Nunito',sans-serif",
                                 background:T.navBg,color:T.text,outline:"none",
                               }}}} />
-                            <button onClick={{{{placeCustomStar}}}}
+                            <button onClick={{placeCustomStar}}
                               style={{{{background:T.primary,color:"#fff",border:"none",borderRadius:10,padding:"7px 12px",fontWeight:800,fontSize:16,cursor:"pointer"}}}}>
                               ⭐
                             </button>
                           </div>
                         </div>
-                        <button onClick={{{{()=>setPopup(null)}}}}
+                        <button onClick={{()=>setPopup(null)}}
                           style={{{{
                             marginTop:8,width:"100%",padding:"6px",background:"transparent",
                             border:`1.5px solid ${{T.navBorder}}`,borderRadius:10,
@@ -698,11 +698,11 @@ def build_html(habits, stars, child_name, theme_key):
                 </div>
 
                 <div style={{{{display:"flex",gap:8}}}}>
-                  <button onClick={{{{resetBoard}}}}
+                  <button onClick={{resetBoard}}
                     style={{{{flex:1,padding:"10px",border:`2px solid ${{T.primary}}`,background:"transparent",borderRadius:12,color:T.primary,fontWeight:800,fontSize:13,cursor:"pointer"}}}}>
                     🔄 Clear Board
                   </button>
-                  <button onClick={{{{()=>setPage("dashboard")}}}}
+                  <button onClick={{()=>setPage("dashboard")}}
                     style={{{{flex:1,padding:"10px",background:`linear-gradient(135deg,${{T.primary}},${{T.secondary}})`,border:"none",borderRadius:12,color:"#fff",fontWeight:800,fontSize:13,cursor:"pointer"}}}}>
                     📊 View Dashboard
                   </button>
@@ -731,7 +731,7 @@ def build_html(habits, stars, child_name, theme_key):
                   {{habits.filter(h=>h.stars>0).length===0
                     ? <div style={{{{color:T.subtext,fontSize:14}}}}>No stars yet — tap the board!</div>
                     : habits.filter(h=>h.stars>0).sort((a,b)=>b.stars-a.stars).map(h=>(
-                      <div key={{{{h.id}}}} style={{{{marginBottom:12}}}}>
+                      <div key={{h.id}} style={{{{marginBottom:12}}}}>
                         <div style={{{{display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:700,marginBottom:4}}}}>
                           <span>{{h.emoji}} {{h.name}}</span>
                           <span style={{{{color:T.primary}}}}>{{h.stars}} ⭐</span>
@@ -754,7 +754,7 @@ def build_html(habits, stars, child_name, theme_key):
                     const done=totalStars>=m.stars;
                     const mc=["#FFD700","#4ECDC4","#FF6B9D","#7B2FBE","#FF6B6B"];
                     return (
-                      <div key={{{{m.stars}}}} style={{{{
+                      <div key={{m.stars}} style={{{{
                         display:"flex",alignItems:"center",gap:12,padding:"10px 0",
                         borderBottom:i<MILESTONES.length-1?`1px solid ${{T.navBorder}}`:"none",
                         opacity:done?1:0.5,
@@ -771,9 +771,9 @@ def build_html(habits, stars, child_name, theme_key):
                         {{done && <div style={{{{fontSize:11,fontWeight:800,color:mc[i]}}}}>EARNED!</div>}}
                       </div>
                     );
-                  }}}}
+                  }})}}
                 </div>
-                <button onClick={{{{resetBoard}}}}
+                <button onClick={{resetBoard}}
                   style={{{{width:"100%",padding:"13px",border:`2px solid ${{T.primary}}`,background:"transparent",borderRadius:14,color:T.primary,fontWeight:800,fontSize:14,cursor:"pointer"}}}}>
                   🔄 Reset All Stars
                 </button>
@@ -788,7 +788,7 @@ def build_html(habits, stars, child_name, theme_key):
                 </div>
                 <div style={{{{background:T.card,borderRadius:20,padding:16,boxShadow:T.shadow,marginBottom:16}}}}>
                   <div style={{{{fontWeight:800,marginBottom:8}}}}>👶 Child's Name</div>
-                  <input value={{{{childName}}}} onChange={{{{e=>updateChildName(e.target.value)}}}}
+                  <input value={{childName}} onChange={{e=>updateChildName(e.target.value)}}
                     placeholder="Enter name..."
                     style={{{{
                       width:"100%",padding:"10px 14px",borderRadius:12,
@@ -800,15 +800,15 @@ def build_html(habits, stars, child_name, theme_key):
                 <div style={{{{background:T.card,borderRadius:20,padding:16,boxShadow:T.shadow,marginBottom:16}}}}>
                   <div style={{{{fontWeight:800,marginBottom:10}}}}>➕ Add Habit</div>
                   <div style={{{{display:"flex",gap:8,marginBottom:10}}}}>
-                    <input value={{{{newHabitEmoji}}}} onChange={{{{e=>setNewHabitEmoji(e.target.value)}}}}
+                    <input value={{newHabitEmoji}} onChange={{e=>setNewHabitEmoji(e.target.value)}}
                       style={{{{
                         width:56,padding:"9px",borderRadius:12,textAlign:"center",
                         border:`2px solid ${{T.navBorder}}`,fontSize:20,
                         background:T.navBg,color:T.text,outline:"none",
                       }}}} />
-                    <input value={{{{newHabitName}}}} onChange={{{{e=>setNewHabitName(e.target.value)}}}}
+                    <input value={{newHabitName}} onChange={{e=>setNewHabitName(e.target.value)}}
                       placeholder="Habit name..."
-                      onKeyDown={{{{e=>e.key==="Enter"&&addHabit()}}}}
+                      onKeyDown={{e=>e.key==="Enter"&&addHabit()}}
                       style={{{{
                         flex:1,padding:"9px 12px",borderRadius:12,
                         border:`2px solid ${{T.navBorder}}`,fontSize:14,
@@ -816,7 +816,7 @@ def build_html(habits, stars, child_name, theme_key):
                         background:T.navBg,color:T.text,outline:"none",
                       }}}} />
                   </div>
-                  <button onClick={{{{addHabit}}}}
+                  <button onClick={{addHabit}}
                     style={{{{
                       width:"100%",padding:"11px",
                       background:`linear-gradient(135deg,${{T.primary}},${{T.secondary}})`,
@@ -828,16 +828,16 @@ def build_html(habits, stars, child_name, theme_key):
                 <div style={{{{background:T.card,borderRadius:20,padding:16,boxShadow:T.shadow}}}}>
                   <div style={{{{fontWeight:800,marginBottom:12}}}}>📋 Habits ({{habits.length}})</div>
                   {{habits.map(h=>(
-                    <div key={{{{h.id}}}} style={{{{borderBottom:`1px solid ${{T.navBorder}}`,paddingBottom:12,marginBottom:12}}}}>
+                    <div key={{h.id}} style={{{{borderBottom:`1px solid ${{T.navBorder}}`,paddingBottom:12,marginBottom:12}}}}>
                       {{editingId===h.id ? (
                         <div style={{{{display:"flex",gap:8,alignItems:"center"}}}}>
-                          <input value={{{{editEmoji}}}} onChange={{{{e=>setEditEmoji(e.target.value)}}}}
+                          <input value={{editEmoji}} onChange={{e=>setEditEmoji(e.target.value)}}
                             style={{{{width:48,padding:"7px",borderRadius:10,textAlign:"center",border:`2px solid ${{T.primary}}`,fontSize:18,background:T.navBg,color:T.text,outline:"none"}}}} />
-                          <input value={{{{editName}}}} onChange={{{{e=>setEditName(e.target.value)}}}}
+                          <input value={{editName}} onChange={{e=>setEditName(e.target.value)}}
                             style={{{{flex:1,padding:"7px 10px",borderRadius:10,border:`2px solid ${{T.primary}}`,fontSize:13,fontFamily:"'Nunito',sans-serif",background:T.navBg,color:T.text,outline:"none"}}}} />
-                          <button onClick={{{{()=>saveEdit(h.id)}}}}
+                          <button onClick={{()=>saveEdit(h.id)}}
                             style={{{{background:T.secondary,border:"none",borderRadius:8,padding:"7px 11px",color:"#fff",fontWeight:700,cursor:"pointer"}}}}>✓</button>
-                          <button onClick={{{{()=>setEditingId(null)}}}}
+                          <button onClick={{()=>setEditingId(null)}}
                             style={{{{background:T.subtext,border:"none",borderRadius:8,padding:"7px 9px",color:"#fff",fontWeight:700,cursor:"pointer"}}}}>✕</button>
                         </div>
                       ) : (
@@ -847,13 +847,13 @@ def build_html(habits, stars, child_name, theme_key):
                             <div style={{{{fontWeight:700,fontSize:14,color:h.active?T.text:T.subtext,textDecoration:h.active?"none":"line-through"}}}}>{{h.name}}</div>
                             <div style={{{{fontSize:11,color:T.subtext}}}}>{{h.stars}} ⭐ earned</div>
                           </div>
-                          <button onClick={{{{()=>toggleHabit(h.id)}}}}
+                          <button onClick={{()=>toggleHabit(h.id)}}
                             style={{{{padding:"4px 9px",borderRadius:20,border:"none",background:h.active?T.secondary+"33":T.navBorder,color:h.active?T.secondary:T.subtext,fontSize:11,fontWeight:800,cursor:"pointer"}}}}>
                             {{h.active?"ON":"OFF"}}
                           </button>
-                          <button onClick={{{{()=>{{setEditingId(h.id);setEditName(h.name);setEditEmoji(h.emoji);}}}}}}
+                          <button onClick={{()=>{{setEditingId(h.id);setEditName(h.name);setEditEmoji(h.emoji);}}}}
                             style={{{{width:30,height:30,borderRadius:8,border:"none",background:T.navBorder,cursor:"pointer",fontSize:14}}}}>✏️</button>
-                          <button onClick={{{{()=>deleteHabit(h.id)}}}}
+                          <button onClick={{()=>deleteHabit(h.id)}}
                             style={{{{width:30,height:30,borderRadius:8,border:"none",background:"#ffebee",cursor:"pointer",fontSize:14}}}}>🗑️</button>
                         </div>
                       )}}
