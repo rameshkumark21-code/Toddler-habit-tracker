@@ -377,6 +377,34 @@ def build_html(habits, stars, child_name, theme_key):
       const nextMilestone= MILESTONES.find(m => m.stars > totalStars);
       const activeHabits = habits.filter(h => h.active);
 
+      // ── Streamlit component handshake ──
+      // Without these two messages, Streamlit's frontend waits forever
+      // for the iframe to report itself ready and sized, causing an
+      // infinite loading spinner with no console/server error at all.
+      const reportHeight = useCallback(() => {{
+        try {{
+          const h = document.documentElement.scrollHeight;
+          window.parent.postMessage({{
+            isStreamlitMessage: true,
+            type: "streamlit:setFrameHeight",
+            height: h,
+          }}, "*");
+        }} catch(e) {{}}
+      }}, []);
+
+      useEffect(() => {{
+        try {{
+          window.parent.postMessage({{ isStreamlitMessage: true, type: "streamlit:componentReady", apiVersion: 1 }}, "*");
+        }} catch(e) {{}}
+        reportHeight();
+        const onResize = () => reportHeight();
+        window.addEventListener("resize", onResize);
+        const interval = setInterval(reportHeight, 400); // catch animated height changes
+        return () => {{ window.removeEventListener("resize", onResize); clearInterval(interval); }};
+      }}, []);
+
+      useEffect(() => {{ reportHeight(); }}, [page, habits.length, boardStars.length, showThemePanel, popup, editingId, milestone]);
+
       const persist = useCallback((newStars, newHabits, newName, newTheme) => {{
         try {{
           window.parent.postMessage({{
